@@ -122,6 +122,17 @@ export default function App() {
   const [visualizeData, setVisualizeData] = useState<VisualizeData | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // AI Provider info & error feedback
+  const [providerInfo, setProviderInfo] = useState<{
+    primaryProvider: string;
+    fallbackProvider: string | null;
+    configuredModel: string;
+    availableProviders: string[];
+  } | null>(null);
+  const [activeProviderUsed, setActiveProviderUsed] = useState<string>("gemini");
+  const [fallbackWasUsed, setFallbackWasUsed] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Custom stress test interaction
   const [customConcern, setCustomConcern] = useState("");
   const [isChallenging, setIsChallenging] = useState(false);
@@ -131,6 +142,19 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodeFilter, setNodeFilter] = useState<string>("all");
 
+  // Load provider status on mount
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.primaryProvider) {
+          setProviderInfo(data);
+          setActiveProviderUsed(data.primaryProvider);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Smooth scroll to top on step change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -138,6 +162,7 @@ export default function App() {
 
   const handleDevelopIdea = async () => {
     if (!idea.trim()) return;
+    setErrorMessage(null);
     setIsLoading(true);
     setLoadingText("Deconstructing first principles...");
 
@@ -148,31 +173,41 @@ export default function App() {
     ];
 
     try {
-      const res = await fetch('/api/forge/analyze', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea })
+        body: JSON.stringify({
+          task: 'analyze_idea',
+          input: idea
+        })
       });
 
-      if (!res.ok) throw new Error("Server response failed");
-      const data = await res.json();
-      
+      const result = await res.json();
       textIntervals.forEach(clearTimeout);
-      setAnalysisData(data);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to analyze idea");
+      }
+
+      if (result.provider) {
+        setActiveProviderUsed(result.provider);
+      }
+      if (result.fallbackUsed) {
+        setFallbackWasUsed(true);
+      }
+
+      setAnalysisData(result.data);
       setIsLoading(false);
       setStep(1);
-    } catch (err) {
-      console.warn("API request issue, fallback handling", err);
+    } catch (err: any) {
       textIntervals.forEach(clearTimeout);
-      // Fallback
-      setTimeout(() => {
-        setIsLoading(false);
-        setStep(1);
-      }, 500);
+      setIsLoading(false);
+      setErrorMessage(err.message || "Failed to analyze concept. Please check provider configuration.");
     }
   };
 
   const handleSelectApproach = async (approach: any) => {
+    setErrorMessage(null);
     setSelectedApproach(approach);
     setIsLoading(true);
     setLoadingText(`Synthesizing schematic for: ${approach.name}...`);
@@ -183,26 +218,40 @@ export default function App() {
     ];
 
     try {
-      const res = await fetch('/api/forge/blueprint', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea, approach })
+        body: JSON.stringify({
+          task: 'prototype_plan',
+          input: idea,
+          context: { approach }
+        })
       });
 
-      if (!res.ok) throw new Error("Blueprint request failed");
-      const data = await res.json();
+      const result = await res.json();
       textIntervals.forEach(clearTimeout);
-      setVisualizeData(data);
-      if (data.visualize?.nodes?.length > 0) {
-        setSelectedNodeId(data.visualize.nodes[0].id);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate blueprint");
+      }
+
+      if (result.provider) {
+        setActiveProviderUsed(result.provider);
+      }
+      if (result.fallbackUsed) {
+        setFallbackWasUsed(true);
+      }
+
+      setVisualizeData(result.data);
+      if (result.data.visualize?.nodes?.length > 0) {
+        setSelectedNodeId(result.data.visualize.nodes[0].id);
       }
       setIsLoading(false);
       setStep(4);
-    } catch (err) {
-      console.warn("Blueprint API error, continuing", err);
+    } catch (err: any) {
       textIntervals.forEach(clearTimeout);
       setIsLoading(false);
-      setStep(4);
+      setErrorMessage(err.message || "Failed to generate prototype blueprint.");
     }
   };
 
@@ -210,18 +259,35 @@ export default function App() {
     e.preventDefault();
     if (!customConcern.trim()) return;
 
+    setErrorMessage(null);
     setIsChallenging(true);
     try {
-      const res = await fetch('/api/forge/challenge', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea, concern: customConcern })
+        body: JSON.stringify({
+          task: 'challenge_concern',
+          input: customConcern,
+          context: { idea, concern: customConcern }
+        })
       });
-      const data = await res.json();
-      setCustomChallenges(prev => [data, ...prev]);
+
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to evaluate concern");
+      }
+
+      if (result.provider) {
+        setActiveProviderUsed(result.provider);
+      }
+      if (result.fallbackUsed) {
+        setFallbackWasUsed(true);
+      }
+
+      setCustomChallenges(prev => [result.data, ...prev]);
       setCustomConcern("");
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to evaluate concern.");
     } finally {
       setIsChallenging(false);
     }
@@ -363,6 +429,17 @@ Generated by IdeaForge Prototyping Engine
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Provider status badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400">
+            <span className={`w-1.5 h-1.5 rounded-full ${fallbackWasUsed ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></span>
+            <span className="uppercase font-semibold text-zinc-300">{activeProviderUsed || providerInfo?.primaryProvider || 'AI'}</span>
+            {fallbackWasUsed && (
+              <span className="text-[9px] font-sans text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                FALLBACK
+              </span>
+            )}
+          </div>
+
           <button 
             onClick={() => {
               if (confirm("Start a new idea from scratch?")) {
@@ -371,6 +448,7 @@ Generated by IdeaForge Prototyping Engine
                 setSelectedApproach(null);
                 setVisualizeData(null);
                 setCustomChallenges([]);
+                setErrorMessage(null);
                 setStep(0);
               }
             }} 
@@ -435,13 +513,33 @@ Generated by IdeaForge Prototyping Engine
           <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">Forging Concept</h3>
           <p className="text-zinc-400 max-w-md animate-pulse text-sm leading-relaxed">{loadingText}</p>
           <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            GEMINI 3.8 FLASH ENGINE ACTIVE
+            <span className={`w-1.5 h-1.5 rounded-full ${fallbackWasUsed ? 'bg-amber-400' : 'bg-emerald-500'}`}></span>
+            <span className="uppercase">{activeProviderUsed || providerInfo?.primaryProvider || 'AI'}</span> ENGINE ACTIVE
+            {fallbackWasUsed && <span className="text-amber-400">(FALLBACK ENGAGED)</span>}
           </div>
         </div>
       )}
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-16">
+        
+        {/* Error notification banner */}
+        {errorMessage && (
+          <div className="mb-8 p-4 rounded-2xl bg-red-950/30 border border-red-500/40 text-red-200 flex items-start justify-between gap-3 text-sm leading-relaxed animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-bold text-white text-sm">AI Provider Notice</strong>
+                <p className="text-xs text-red-200 mt-0.5">{errorMessage}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-zinc-800 text-xs transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         
         {/* STEP 0: LANDING */}
         {step === 0 && (
