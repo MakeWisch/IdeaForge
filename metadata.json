@@ -1,0 +1,6 @@
+{
+  "name": "IdeaForge - Concept Engineering & Prototyping Engine",
+  "description": "Transform raw shower thoughts and rough concepts into rigorous architectural breakdowns, stress tests, interactive schematics, and prototype build plans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
