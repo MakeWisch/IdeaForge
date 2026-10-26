@@ -18,9 +18,15 @@ export interface AIProvider {
   readonly defaultModel: string;
   generateText(options: GenerateTextOptions): Promise<string>;
   generateStructuredOutput<T>(options: GenerateStructuredOutputOptions): Promise<T>;
+  generate3DDesignSpecification?(prompt: string, context?: Record<string, any>): Promise<any>;
+  modifyDesign?(currentSpec: any, instruction: string): Promise<any>;
+  analyzeDesign?(currentSpec: any): Promise<any>;
 }
 
 export type TaskType = 
+  | 'generate_3d_design'
+  | 'modify_3d_design'
+  | 'analyze_design'
   | 'analyze_idea'
   | 'stress_test'
   | 'generate_alternatives'

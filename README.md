@@ -1,124 +1,234 @@
-# IdeaForge - Concept Engineering & Prototyping Engine
+# IdeaForge — 3D Mechanical Mechanism Studio
 
-Turn unfinished thoughts, shower thoughts, and rough concepts into structured engineering breakdowns, stress tests, interactive schematics, and prototype build plans with a provider-agnostic AI backend.
+Transform natural language product and invention ideas directly into interactive 3D mechanisms with live articulating joints, kinematic simulation, exploded assembly views, and CAD exports.
 
----
-
-## Features
-
-- **Provider-Agnostic Architecture**: Switch seamlessly between **Google Gemini**, **OpenAI**, and **Anthropic** without touching frontend code.
-- **Automatic Fallback Support**: Route transient rate limits (429) or service outages to a secondary backup provider.
-- **6-Stage Engineering Pipeline**:
-  1. **Concept Breakdown**: First-principles deconstruction (Core Value Engine, Root Problem Solved, Operating Physics/Kinematics, Target Adopters, Critical Assumptions).
-  2. **Stress Testing**: Points of failure across technical, cost, logical, safety, and market domains with actionable mitigations and live custom "what-if" testing.
-  3. **Architectural Exploration**: 3 distinct architectural options (Scrappy, Balanced, Cutting-Edge) with trade-off matrices, complexity notes, BOM estimates, and timelines.
-  4. **Interactive System Architecture**: Visual node topology graph with clickable subsystem inspection and signal pathway tracing.
-  5. **Prototype Build Plan**: Bill of Materials (BOM) with specifications and sourcing channels, phased execution roadmap, safety controls, and Day-1 validation benchmarks.
-  6. **Executive Specification & Export**: Export to Markdown, download raw JSON data, or print/PDF preview.
-
----
-
-## AI Provider Configuration
-
-IdeaForge features a server-side abstraction layer (`server/ai`) where the frontend communicates solely via normalized requests to `POST /api/ai`. The server dynamically routes requests to the configured provider adapter.
-
-### 1. How to Configure Gemini
-To use Google Gemini as your AI engine:
-1. Obtain an API key from [Google AI Studio](https://aistudio.google.com/).
-2. Add the following to your server `.env` file:
-   ```env
-   AI_PROVIDER="gemini"
-   GEMINI_API_KEY="your-gemini-api-key"
-   # Optional: customize model (defaults to 'gemini-3.8-flash')
-   AI_MODEL="gemini-3.8-flash"
-   ```
-
-### 2. How to Configure OpenAI
-To use OpenAI:
-1. Obtain an API key from [OpenAI Platform](https://platform.openai.com/api-keys).
-2. Add the following to your server `.env` file:
-   ```env
-   AI_PROVIDER="openai"
-   OPENAI_API_KEY="your-openai-api-key"
-   # Optional: customize model (defaults to 'gpt-4o-mini')
-   AI_MODEL="gpt-4o-mini"
-   ```
-
-### 3. How to Configure Anthropic
-To use Anthropic Claude:
-1. Obtain an API key from [Anthropic Console](https://console.anthropic.com/).
-2. Add the following to your server `.env` file:
-   ```env
-   AI_PROVIDER="anthropic"
-   ANTHROPIC_API_KEY="your-anthropic-api-key"
-   # Optional: customize model (defaults to 'claude-3-5-sonnet-20241022')
-   AI_MODEL="claude-3-5-sonnet-20241022"
-   ```
-
-### 4. How to Choose the Active Provider
-Set the `AI_PROVIDER` environment variable in your `.env` file to one of:
-- `gemini`
-- `openai`
-- `anthropic`
-
-You can also override the specific model globally using `AI_MODEL`.
-
-### 5. How to Configure a Fallback Provider
-If your primary provider encounters a temporary failure (such as HTTP 429 rate limits or network outages), IdeaForge can automatically retry the request with your fallback provider:
-```env
-AI_PROVIDER="gemini"
-AI_FALLBACK_PROVIDER="openai"
-
-GEMINI_API_KEY="your-gemini-key"
-OPENAI_API_KEY="your-openai-key"
 ```
-*Note: The system will never silently switch providers for authentication or missing key errors. When fallback is engaged, the UI indicates that a fallback provider was used.*
-
-### 6. Where API Keys Should Be Stored
-**Security Rule**: Secret API keys must **only** be stored in server-side environment variables or in your local `.env` file (which is excluded from Git via `.gitignore`).
-- **Never** place keys in React components, client bundles, or frontend code.
-- **Never** commit `.env` containing real keys to GitHub.
-- If packaging into an iOS or Android app via Capacitor, the mobile client must call your secure backend endpoint over HTTPS. Do **not** bake API keys into mobile binaries.
-
-### 7. How to Add Another Provider
-Adding a new provider (e.g., Mistral, Groq, DeepSeek, or an internal LLM) takes 3 simple steps without rewriting the application:
-1. Create a class implementing the `AIProvider` interface in `server/ai/providers/MyNewProvider.ts`:
-   ```ts
-   import { AIProvider, GenerateTextOptions, GenerateStructuredOutputOptions } from "../types";
-
-   export class MyNewProvider implements AIProvider {
-     readonly name = "mynewprovider";
-     readonly defaultModel = "my-model-name";
-
-     async generateText(options: GenerateTextOptions): Promise<string> { ... }
-     async generateStructuredOutput<T>(options: GenerateStructuredOutputOptions): Promise<T> { ... }
-   }
-   ```
-2. Register the provider in `server/ai/providerRegistry.ts`:
-   ```ts
-   this.register("mynewprovider", () => new MyNewProvider());
-   ```
-3. Set `AI_PROVIDER="mynewprovider"` and supply your custom key in `.env`.
+USER IDEA / PROMPT
+       ↓
+AI ORCHESTRATOR (Gemini / OpenAI / Anthropic)
+       ↓
+STRUCTURED 3D DESIGN SPECIFICATION (JSON)
+       ↓
+FRONTEND KINEMATICS ENGINE & THREE.JS / R3F SCENE
+       ↓
+INTERACTIVE ARTICULATING 3D MECHANISM
+```
 
 ---
 
-## Quick Start
+## Core Capabilities
 
-### 1. Clone & Install
+- **Natural Language → 3D Mechanism**: Describe an invention (e.g. *"Create a folding phone stand with dual hinged arms"*) and receive a fully assembled 3D mechanism composed of parameterized geometric primitives.
+- **Interactive Mechanical Joints**:
+  - **Revolute (Hinge)**: Constrains rotational articulation around defined anchor pivots and axes with min/max angular limits.
+  - **Prismatic (Slider)**: Constrains linear actuation along defined directional vectors with distance limits.
+  - **Fixed**: Rigid structural joints and weldments.
+- **Kinematic Simulation Mode**: Real-time harmonic and cyclic kinematic simulation animating connected components in unison.
+- **Exploded View Mode**: Continuous 0% to 100% assembly separation slider to inspect inner pins, bushings, and linkages.
+- **AI Modification Commands**: Incrementally modify existing models (e.g. *"Make the arm twice as long"*, *"Increase cradle tilt limits to 120 degrees"*).
+- **Professional CAD Export**:
+  - **Wavefront OBJ (`.obj`)**: Real 3D polygon mesh file ready for 3D printing, Blender, or Fusion 360.
+  - **Design Specification JSON (`.json`)**: Machine-readable kinematic CAD specification.
+  - **High-Resolution Snapshot (`.png`)**: Viewport screenshot.
+- **Ready-to-Use Demo Models**:
+  - Dual-Hinge Folding Phone Stand
+  - Precision Hinged Storage Container
+  - 3-Axis Articulated Robotic Arm
+  - Hydraulic Scissor Lift Deck
+
+---
+
+## Architecture Overview
+
+```
+Frontend (React 19 + Three.js + R3F + Drei)
+├── Left Panel: Model Hierarchy Tree (Parts, visibility, parent-child links)
+├── Center Viewport: Interactive 3D Canvas (OrbitControls, Gizmo, Grid, Dimensions)
+├── Right Panel: Joint Manipulators, Harmonic Simulation, Exploded View, Part Inspector
+└── Bottom Console: Natural Language AI Generator & Modifier
+       ↓ (POST /.netlify/functions/ai or /api/ai)
+Netlify Serverless Function / Server Proxy
+       ↓
+AI Orchestrator (executeAITask)
+       ↓
+AI Provider Adapter
+├── GeminiProvider (@google/genai — gemini-3.8-flash)
+├── OpenAIProvider (Fetch /v1/chat/completions — gpt-4o-mini)
+└── AnthropicProvider (Fetch /v1/messages — claude-3-5-sonnet-20241022)
+       ↓
+Returns Validated DesignSpecification JSON
+```
+
+---
+
+## 3D Design Specification Format
+
+IdeaForge separates AI reasoning from 3D rendering. The AI generates a machine-readable JSON format, which the frontend validates and converts into Three.js primitives:
+
+```json
+{
+  "name": "Dual-Hinge Folding Phone Stand",
+  "description": "Adjustable folding desktop stand with articulating arms.",
+  "category": "Consumer Product",
+  "dimensions": { "width": 3.0, "height": 4.2, "depth": 4.0, "unit": "cm" },
+  "parts": [
+    {
+      "id": "base_plate",
+      "name": "Weighted Base Plate",
+      "parentId": null,
+      "geometry": {
+        "type": "box",
+        "dimensions": [3.2, 0.25, 4.0]
+      },
+      "transform": {
+        "position": [0, 0.125, 0],
+        "rotation": [0, 0, 0]
+      },
+      "material": {
+        "color": "#27272a",
+        "roughness": 0.4,
+        "metalness": 0.8
+      }
+    },
+    {
+      "id": "support_arm",
+      "name": "Primary Articulating Arm",
+      "parentId": "base_plate",
+      "geometry": {
+        "type": "box",
+        "dimensions": [2.2, 0.2, 3.0]
+      },
+      "transform": {
+        "position": [0, 1.4, -0.4],
+        "rotation": [-45, 0, 0]
+      },
+      "material": {
+        "color": "#2563eb",
+        "roughness": 0.25,
+        "metalness": 0.4
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "joint_base_angle",
+      "name": "Base Elevation Hinge",
+      "type": "revolute",
+      "parentPartId": "base_plate",
+      "childPartId": "support_arm",
+      "anchor": [0, 0.32, -1.4],
+      "axis": [1, 0, 0],
+      "limits": {
+        "min": -75,
+        "max": 15,
+        "default": -45,
+        "unit": "deg"
+      },
+      "currentValue": -45
+    }
+  ]
+}
+```
+
+### Supported Geometric Primitives
+- `box`: `dimensions: [width, height, depth]`
+- `cylinder`: `dimensions: [radiusTop, radiusBottom, height]`
+- `sphere`: `dimensions: [radius]`
+- `capsule`: `dimensions: [radius, length]`
+- `plane`: `dimensions: [width, height]`
+
+---
+
+## Local Development
+
+### 1. Prerequisites
+- Node.js 18+ or 20+
+- npm or bun
+
+### 2. Clone & Install
 ```bash
 git clone https://github.com/<your-username>/<your-repo-name>.git
 cd <your-repo-name>
 npm install
 ```
 
-### 2. Configure Environment
+### 3. Configure Environment Variables
+Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
-# Edit .env with your chosen provider and key
 ```
 
-### 3. Run Development Server
+Add your API key (e.g. Gemini, OpenAI, or Anthropic):
+```env
+AI_PROVIDER="gemini"
+GEMINI_API_KEY="your_api_key_here"
+```
+
+### 4. Start Development Server
 ```bash
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | If using Gemini | - | Google Gemini API Key |
+| `OPENAI_API_KEY` | If using OpenAI | - | OpenAI Platform API Key |
+| `ANTHROPIC_API_KEY` | If using Anthropic | - | Anthropic Claude API Key |
+| `AI_PROVIDER` | Optional | `gemini` | Active provider: `gemini`, `openai`, `anthropic` |
+| `AI_MODEL` | Optional | Provider default | Model override (e.g. `gemini-3.8-flash`, `gpt-4o-mini`) |
+| `AI_FALLBACK_PROVIDER` | Optional | - | Backup provider for transient rate limits (e.g. `openai`) |
+
+> **Security Note:** All API keys are accessed strictly server-side. No API keys are bundled or exposed to client browsers.
+
+---
+
+## AI Provider Setup
+
+### Using Google Gemini
+```env
+AI_PROVIDER="gemini"
+GEMINI_API_KEY="your_gemini_key"
+AI_MODEL="gemini-3.8-flash"
+```
+
+### Using OpenAI
+```env
+AI_PROVIDER="openai"
+OPENAI_API_KEY="your_openai_key"
+AI_MODEL="gpt-4o-mini"
+```
+
+### Using Anthropic
+```env
+AI_PROVIDER="anthropic"
+ANTHROPIC_API_KEY="your_anthropic_key"
+AI_MODEL="claude-3-5-sonnet-20241022"
+```
+
+### Using Automatic Fallback
+```env
+AI_PROVIDER="gemini"
+AI_FALLBACK_PROVIDER="openai"
+GEMINI_API_KEY="your_gemini_key"
+OPENAI_API_KEY="your_openai_key"
+```
+
+---
+
+## Deployment Instructions
+
+### Deploy to Netlify
+1. Connect your repository to Netlify.
+2. Netlify reads `netlify.toml`:
+   - **Build command**: `npm run build`
+   - **Publish directory**: `dist`
+   - **Functions directory**: `netlify/functions`
+3. In **Site Configuration > Environment Variables**, add:
+   - `AI_PROVIDER`: `gemini` (or `openai` / `anthropic`)
+   - `GEMINI_API_KEY`: your API key
+4. Deploy site. All requests to `/.netlify/functions/ai` and `/api/ai` are handled automatically by the serverless function.

@@ -15,16 +15,16 @@ function apiServerPlugin(): Plugin {
       server.middlewares.use(async (req: any, res, next) => {
         const url = req.url?.split('?')[0] || '';
 
-        // Handle /api/ai status endpoint
-        if (url === '/api/ai/status' && req.method === 'GET') {
+        // Handle /api/ai/status or Netlify function status endpoint
+        if ((url === '/api/ai/status' || url === '/.netlify/functions/ai') && req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
           res.end(JSON.stringify(registry.getStatus()));
           return;
         }
 
-        // Handle normalized /api/ai POST endpoint
-        if (url === '/api/ai' && req.method === 'POST') {
+        // Handle normalized /api/ai and /.netlify/functions/ai POST endpoint
+        if ((url === '/api/ai' || url === '/.netlify/functions/ai') && req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json');
           try {
             const body = req.body || {};
@@ -33,7 +33,7 @@ function apiServerPlugin(): Plugin {
             res.end(JSON.stringify(result));
             return;
           } catch (err: any) {
-            console.error('API /api/ai error:', err);
+            console.error('API /ai error:', err);
             res.statusCode = 500;
             res.end(JSON.stringify({
               success: false,
